@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>BALLOON POP – PECAHKAN BALON PINTAR</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Baloo 2','Comic Sans MS',system-ui,sans-serif;background:#8fd8ff;color:#2d1b4e;user-select:none;-webkit-user-select:none}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;background:linear-gradient(#3ab8ff,#e9fbff)}
+
+/* NAVBAR */
+#navbar{display:flex;align-items:center;gap:10px;padding:8px 14px;background:linear-gradient(90deg,#7b2ff7,#f107a3 55%,#ff8a00);color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.25);z-index:5;flex-wrap:wrap}
+.brand{font-weight:800;font-size:21px;letter-spacing:.5px;margin-right:auto;text-shadow:0 2px 0 rgba(0,0,0,.2)}
+.chip{background:rgba(255,255,255,.22);padding:4px 12px;border-radius:999px;font-weight:700;font-size:15px;white-space:nowrap}
+.chip b{font-size:17px}
+#soundBtn{border:0;background:#fff;color:#7b2ff7;font-weight:800;border-radius:999px;padding:5px 14px;cursor:pointer;font-family:inherit;font-size:15px}
+
+/* PROGRESS */
+#progressWrap{height:18px;background:rgba(255,255,255,.6);border-bottom:3px solid #fff;position:relative;overflow:hidden}
+#progressFill{height:100%;width:0%;background:linear-gradient(90deg,#3ddc84,#ffd23f,#ff6b6b);transition:width .5s ease}
+#progressText{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#2d1b4e}
+
+/* QUESTION CARD */
+#questionCard{margin:10px auto 0;background:#fff;border-radius:22px;padding:12px 22px;width:min(94vw,920px);box-shadow:0 7px 0 rgba(45,27,78,.14),0 12px 24px rgba(0,0,0,.15);text-align:center;z-index:4}
+.badge{display:inline-block;color:#fff;font-weight:800;font-size:14px;padding:3px 14px;border-radius:999px}
+.badge.LOTS{background:#20c46a}
+.badge.MOTS{background:#1e90ff}
+.badge.HOTS{background:#ff4d6d}
+#levelName{font-size:14px;font-weight:700;opacity:.7;margin-top:4px}
+#questionText{font-size:clamp(20px,3.2vw,30px);font-weight:800;margin-top:4px;line-height:1.25}
+
+/* STAGE */
+#stage{flex:1;position:relative;min-height:240px;overflow:hidden;margin-top:6px}
+#canvas{position:absolute;left:0;top:0;display:block;touch-action:none;cursor:none}
+#hint{position:absolute;left:12px;bottom:10px;background:rgba(255,255,255,.75);padding:6px 12px;border-radius:12px;font-weight:700;font-size:14px;pointer-events:none;max-width:70%}
+#banner{position:absolute;top:14px;left:50%;transform:translateX(-50%);padding:12px 22px;border-radius:18px;font-weight:800;font-size:19px;color:#fff;display:none;z-index:6;max-width:92%;text-align:center;box-shadow:0 8px 18px rgba(0,0,0,.25);pointer-events:none;animation:bannerIn .35s cubic-bezier(.2,1.6,.4,1)}
+#banner small{display:block;font-weight:600;font-size:15px;margin-top:4px;opacity:.95}
+#banner.good{background:#1fbf6a}
+#banner.bad{background:#ff4d6d}
+#banner.info{background:#ff9f1c}
+@keyframes bannerIn{from{transform:translateX(-50%) scale(.6);opacity:0}to{transform:translateX(-50%) scale(1);opacity:1}}
+#camBox{position:absolute;right:12px;bottom:12px;width:170px;height:128px;border-radius:16px;overflow:hidden;border:4px solid #fff;display:none;z-index:6;box-shadow:0 6px 14px rgba(0,0,0,.25);background:#222}
+#cam{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#camStatus{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);color:#fff;font-size:12px;font-weight:700;padding:3px 6px;text-align:center}
+
+/* OVERLAYS */
+.overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(40,20,80,.5);backdrop-filter:blur(3px);z-index:50}
+.overlay.show{display:flex}
+.panel{background:#fff;border-radius:28px;padding:26px 24px;width:min(92vw,520px);text-align:center;box-shadow:0 14px 0 rgba(45,27,78,.18),0 20px 40px rgba(0,0,0,.3);animation:popIn .4s cubic-bezier(.2,1.6,.4,1)}
+@keyframes popIn{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+.panel h1{font-size:46px;font-weight:800;background:linear-gradient(90deg,#7b2ff7,#f107a3,#ff8a00);-webkit-background-clip:text;background-clip:text;color:transparent;line-height:1.05}
+.panel h2{font-size:28px;font-weight:800;margin-bottom:8px}
+.panel p{font-size:16px;line-height:1.5;margin:6px 0}
+.sub{font-size:20px;font-weight:700;opacity:.85}
+.meta{font-size:14px;opacity:.75;margin:6px 0 12px}
+.emoji{font-size:40px}
+.stars{font-size:44px;letter-spacing:6px;margin:6px 0}
+#endMsg{font-size:19px;font-weight:700;color:#7b2ff7;margin:8px 0}
+#endStats{font-size:16px;background:#f4efff;border-radius:16px;padding:10px;margin-top:8px;line-height:1.7}
+label{display:block;font-weight:800;margin-top:10px;font-size:17px}
+input{width:100%;padding:12px 16px;border-radius:16px;border:3px solid #cdb8ff;font:700 20px 'Baloo 2','Comic Sans MS',sans-serif;text-align:center;outline:none;color:#2d1b4e;margin-top:6px}
+input:focus{border-color:#f107a3}
+.err{color:#e0203f;min-height:22px;font-weight:700;margin-top:6px}
+.howto{font-size:15px;text-align:left;background:#f4efff;border-radius:16px;padding:12px 14px;margin-top:14px;line-height:1.5}
+.btn{display:block;width:100%;margin-top:12px;border:0;border-radius:18px;padding:14px;font:800 20px 'Baloo 2','Comic Sans MS',sans-serif;color:#fff;background:linear-gradient(#ff8a3d,#ff3d7f);box-shadow:0 6px 0 #b8245a;cursor:pointer}
+.btn:active{transform:translateY(4px);box-shadow:0 2px 0 #b8245a}
+.btn.alt{background:linear-gradient(#5ec8ff,#2b7fe0);box-shadow:0 6px 0 #1a57a0}
+.btn.alt:active{box-shadow:0 2px 0 #1a57a0}
+@media (max-width:640px){
+  .brand{font-size:17px;width:100%}
+  .chip{font-size:13px;padding:3px 9px}
+  #camBox{width:120px;height:90px}
+  #hint{font-size:12px;max-width:55%}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <nav id="navbar">
+    <div class="brand">🎈 BALLOON POP</div>
+    <div class="chip">👤 <b id="navName">-</b></div>
+    <div class="chip">⭐ Skor: <b id="navScore">0</b></div>
+    <div class="chip">📘 Level <b id="navLevel">1</b>/5</div>
+    <div class="chip">⏱️ Soal: <b id="navTimer">--</b></div>
+    <div class="chip">🕒 Total: <b id="navTotal">00:00</b></div>
+    <button id="soundBtn">🔊 Suara: On</button>
+  </nav>
+
+  <div id="progressWrap">
+    <div id="progressFill"></div>
+    <div id="progressText">0 / 15 soal</div>
+  </div>
+
+  <div id="questionCard">
+    <span class="badge LOTS" id="catBadge">LOTS</span>
+    <div id="levelName"></div>
+    <div id="questionText">Tekan "Mulai Main" untuk memulai!</div>
+  </div>
+
+  <div id="stage">
+    <canvas id="canvas"></canvas>
+    <div id="banner"></div>
+    <div id="hint">Pecahkan balon jawaban yang benar!</div>
+    <div id="camBox">
+      <video id="cam" playsinline muted autoplay></video>
+      <div id="camStatus">Menyiapkan kamera…</div>
+    </div>
+  </div>
+</div>
+
+<!-- START -->
+<div class="overlay show" id="startOv">
+  <div class="panel">
+    <div class="emoji">🎈🎈🎈</div>
+    <h1>BALLOON POP</h1>
+    <p class="sub">Pecahkan Balon Pintar</p>
+    <p class="meta">Mata Pelajaran: Bahasa Indonesia · Materi: Kalimat Aktif dan Kalimat Pasif · Kelas 2 SD</p>
+    <label for="nameIn">Siapa namamu?</label>
+    <input id="nameIn" maxlength="20" placeholder="Tulis namamu di sini" autocomplete="off" />
+    <p class="err" id="startErr"></p>
+    <button class="btn" id="startBtn">Mulai Main 🚀</button>
+    <div class="howto">
+      <b>Cara main:</b><br>
+      ✋ Gerakkan telunjukmu ke balon.<br>
+      🤏 Cubit (rapatkan ibu jari dan telunjuk) untuk memecahkan balon.<br>
+      🖱️ Atau klik / ketuk balon dengan mouse atau layar sentuh.<br>
+      ⭐ Jawab benar untuk mendapat poin. Semangat!
+    </div>
+  </div>
+</div>
+
+<!-- CONSENT -->
+<div class="overlay" id="consentOv">
+  <div class="panel">
+    <div class="emoji">📷</div>
+    <h2>Izin Kamera</h2>
+    <p>Kamera dipakai untuk membaca gerakan tanganmu agar bisa memecahkan balon. Video diproses langsung di perangkatmu dan <b>tidak</b> direkam atau dikirim ke mana pun.</p>
+    <p>Kamu juga bisa bermain dengan mouse atau layar sentuh, tanpa kamera.</p>
+    <button class="btn" id="allowCam">Setuju, Aktifkan Kamera</button>
+    <button class="btn alt" id="noCam">Tidak, Pakai Mouse / Sentuh</button>
+  </div>
+</div>
+
+<!-- LEVEL INTRO -->
+<div class="overlay" id="lvlOv">
+  <div class="panel">
+    <div class="emoji">🏆</div>
+    <h2 id="lvlTitle"></h2>
+    <p id="lvlDesc"></p>
+  </div>
+</div>
+
+<!-- END -->
+<div class="overlay" id="endOv">
+  <div class="panel">
+    <div class="emoji">🎉</div>
+    <h2 id="endTitle"></h2>
+    <div class="stars" id="endStars"></div>
+    <p id="endMsg"></p>
+    <div id="endStats"></div>
+    <button class="btn" id="againBtn">Main Lagi 🔁</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ==================== DATA SOAL ==================== */
+const QTIME = 30;
+const CAT = { LOTS:{pts:10}, MOTS:{pts:20}, HOTS:{pts:30} };
+const COLORS = [
+  ['#ffd1dc','#ff4d6d','#b0163f'],
+  ['#fff3b0','#ffd23f','#c48a00'],
+  ['#c8ffe0','#2ddc85','#0d8a4c'],
+  ['#cfe8ff','#3da5ff','#1257b3'],
+  ['#eadcff','#a66bff','#5a1fb8'],
+  ['#ffe2c2','#ff9f2e','#b2540a']
+];
+
+const LEVELS = [
+  { name:'Level 1 · Kenali Kalimat', desc:'Mengenal ciri kalimat aktif dan pasif.', qs:[
+    { cat:'LOTS', q:'Manakah yang termasuk KALIMAT AKTIF?',
+      opts:['Bola ditendang Andi.','Andi menendang bola.','Bola itu tendangan Andi.','Bola oleh Andi tertendang.'], a:1,
+      ex:'Kalimat aktif: subjek (Andi) melakukan perbuatan (menendang).' },
+    { cat:'MOTS', q:'Ubah kalimat aktif "Ayah membaca koran" menjadi kalimat pasif yang tepat!',
+      opts:['Koran dibaca oleh ayah.','Ayah dibaca koran.','Koran membaca ayah.','Ayah koran dibaca.'], a:0,
+      ex:'Pada kalimat pasif, koran menerima perbuatan. Pakai awalan di- dan kata "oleh".' },
+    { cat:'HOTS', q:'Mengapa kalimat "Layang-layang diterbangkan Dimas" termasuk kalimat pasif?',
+      opts:['Karena pelakunya ada di depan.','Karena subjeknya, layang-layang, menerima perbuatan.','Karena memakai kata "aku".','Karena berakhir dengan tanda tanya.'], a:1,
+      ex:'Pada kalimat pasif, subjek adalah sasaran yang dikenai perbuatan, bukan pelakunya.' }
+  ]},
+  { name:'Level 2 · Awalan me- dan di-', desc:'Mengenali awalan me- dan di- pada kalimat.', qs:[
+    { cat:'LOTS', q:'Kalimat "Kue itu dimakan adik." termasuk kalimat apa?',
+      opts:['Kalimat aktif','Kalimat pasif','Kalimat tanya','Kalimat perintah'], a:1,
+      ex:'Kata "dimakan" memakai awalan di-, dan kue sebagai sasaran menerima perbuatan.' },
+    { cat:'MOTS', q:'Ubah "Adik membersihkan kamar." menjadi kalimat pasif.',
+      opts:['Kamar dibersihkan oleh adik.','Kamar membersihkan adik.','Adik dibersihkan kamar.','Kamar adik dibersih.'], a:0,
+      ex:'Objek "kamar" pindah ke depan, memakai di-, dan pelaku ditulis dengan "oleh adik".' },
+    { cat:'HOTS', q:'Manakah kalimat yang BUKAN kalimat pasif?',
+      opts:['Surat ditulis oleh Dani.','Sepeda dikayuh Rani.','Rani mengayuh sepeda.','Bola dilempar Adi.'], a:2,
+      ex:'Rani mengayuh sepeda: subjek Rani melakukan perbuatan, jadi ini kalimat aktif.' }
+  ]},
+  { name:'Level 3 · Pelaku dan Sasaran', desc:'Memahami pelaku dan sasaran perbuatan.', qs:[
+    { cat:'LOTS', q:'Apa ciri utama KALIMAT AKTIF?',
+      opts:['Subjek melakukan perbuatan.','Subjek menerima perbuatan.','Selalu berisi pertanyaan.','Selalu berisi perintah.'], a:0,
+      ex:'Pada kalimat aktif, subjek adalah pelaku yang melakukan perbuatan.' },
+    { cat:'MOTS', q:'Ubah "Ibu menyiram bunga." menjadi kalimat pasif.',
+      opts:['Bunga disiram oleh Ibu.','Bunga menyiram Ibu.','Ibu disiram bunga.','Ibu bunga disiram.'], a:0,
+      ex:'Bunga menjadi subjek dan memakai di-. Pelaku ditulis dengan "oleh Ibu".' },
+    { cat:'HOTS', q:'Ubah kalimat pasif "Surat dikirim oleh Nina." menjadi kalimat aktif yang tepat.',
+      opts:['Nina mengirim surat.','Surat mengirim Nina.','Nina dikirim surat.','Surat dikirim Nina.'], a:0,
+      ex:'Pelaku (Nina) menjadi subjek, dan kata dikirim berubah menjadi mengirim.' }
+  ]},
+  { name:'Level 4 · Pilih Kata yang Tepat', desc:'Memilih kata kerja yang tepat untuk kalimat pasif.', qs:[
+    { cat:'LOTS', q:'Pada kalimat "Rumah itu dicat Paman.", apa yang menerima perbuatan?',
+      opts:['Paman','Rumah','Cat','Itu'], a:1,
+      ex:'Rumah adalah sasaran yang dicat oleh Paman.' },
+    { cat:'MOTS', q:'Pilih kata yang tepat: Kue itu ___ oleh Ibu.',
+      opts:['membuat','dibuat','buat','memakai'], a:1,
+      ex:'Kalimat pasif memakai awalan di-, jadi kata yang tepat adalah dibuat.' },
+    { cat:'HOTS', q:'Cerita: "Sampah dibuang Tono ke tempat sampah." Jika ingin menonjolkan Tono sebagai pelaku, kalimat aktif yang tepat adalah...',
+      opts:['Tono membuang sampah ke tempat sampah.','Sampah dibuang ke tempat sampah.','Tempat sampah dibuang Tono.','Tono dibuang sampah.'], a:0,
+      ex:'Pelaku Tono menjadi subjek, dan dibuang berubah menjadi membuang.' }
+  ]},
+  { name:'Level 5 · Tantangan Campuran', desc:'Tantangan terakhir: gabungan semua materi!', qs:[
+    { cat:'LOTS', q:'Kalimat "Ani disapa Budi." termasuk kalimat...',
+      opts:['Aktif','Pasif','Tanya','Perintah'], a:1,
+      ex:'Ani menerima perbuatan (disapa), jadi ini kalimat pasif.' },
+    { cat:'MOTS', q:'Manakah kalimat AKTIF dari "Kursi itu diduduki Kakek."?',
+      opts:['Kakek menduduki kursi itu.','Kursi itu menduduki Kakek.','Kakek diduduki kursi.','Kursi menduduki kakek itu.'], a:0,
+      ex:'Pelaku Kakek menjadi subjek, dan diduduki berubah menjadi menduduki.' },
+    { cat:'HOTS', q:'Manakah penjelasan yang paling tepat tentang kalimat aktif dan pasif?',
+      opts:['Aktif: subjek sebagai pelaku. Pasif: subjek sebagai sasaran perbuatan.','Aktif selalu memakai di-, pasif selalu memakai me-.','Keduanya sama, hanya beda tanda baca.','Pasif selalu berada di akhir kalimat.'], a:0,
+      ex:'Pada kalimat aktif subjek melakukan perbuatan, sedangkan pada kalimat pasif subjek dikenai perbuatan.' }
+  ]}
+];
+
+/* ==================== STATE ==================== */
+const $ = id => document.getElementById(id);
+const S = {
+  name:'', score:0, correct:0, gi:0, lvl:0, qi:0,
+  mode:'menu', deadline:0, startT:0, token:0,
+  balloons:[], parts:[], clouds:[], bubbles:[],
+  k:1, cur:null, ptr:null, ptrIn:false, hand:null, handOn:false, lastHand:0,
+  pinch:false, pinchPrev:false, hoverB:null, t:0, muted:false, useCam:false,
+  lastSec:-2, lastTotal:'', camStat:''
+};
+let W = 0, H = 0, DPR = 1;
+let hands = null, camStream = null, sending = false, camFailed = false;
+
+const curQ = () => LEVELS[S.lvl].qs[S.qi];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmt = ms => {
+  const s = Math.floor(ms / 1000);
+  return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+};
+function shuffle(arr){
+  for (let i = arr.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+/* ==================== CANVAS ==================== */
+const cv = $('canvas');
+const ctx = cv.getContext('2d');
+
+function resize(){
+  const st = $('stage');
+  W = st.clientWidth;
+  H = st.clientHeight;
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.round(W * DPR);
+  cv.height = Math.round(H * DPR);
+  cv.style.width = W + 'px';
+  cv.style.height = H + 'px';
+  if (!S.clouds.length){
+    for (let i = 0; i < 6; i++) S.clouds.push({
+      x: Math.random() * W, y: H * (0.04 + Math.random() * 0.3),
+      s: 0.6 + Math.random() * 0.8, sp: 8 + Math.random() * 12
+    });
+    for (let i = 0; i < 30; i++) S.bubbles.push({
+      x: Math.random() * W, y: Math.random() * H,
+      r: 4 + Math.random() * 10, sp: 15 + Math.random() * 25, ph: Math.random() * 6.28
+    });
+  }
+  layoutBalloons();
+}
+new ResizeObserver(resize).observe($('stage'));
+
+function calcK(n){
+  return Math.max(0.5, Math.min(1.15, (W / (n + 1)) / 170, H / 620));
+}
+
+/* ==================== BALON ==================== */
+function layoutBalloons(){
+  const n = S.balloons.length;
+  if (!n) return;
+  S.k = calcK(n);
+  const ry = 84 * S.k;
+  S.balloons.forEach((b, i) => {
+    b.bx = W * ((i + 1) / (n + 1));
+    let by = H * 0.5 + (i % 2 ? 0.06 : -0.02) * H + b.jy;
+    b.by = clamp(by, ry + 24, H - ry - 130 * S.k);
+  });
+}
+
+function spawnBalloons(q){
+  const items = shuffle(q.opts.map((t, i) => ({ text:t, correct: i === q.a })));
+  const cols = shuffle([...COLORS]);
+  S.balloons = items.map((it, i) => ({
+    text: it.text, correct: it.correct, col: cols[i % cols.length],
+    bx:0, by:0, x:0, y:0, jy:(Math.random() - 0.5) * 0.12 * H,
+    phase: Math.random() * 6.28, state:'idle', st:0, hv:0, glow:false, lines:null
+  }));
+  S.k = calcK(items.length);
+  layoutBalloons();
+}
+
+function hitBalloon(x, y){
+  let best = null, bd = 1e9;
+  for (const b of S.balloons){
+    if (b.state !== 'idle') continue;
+    const dx = (x - b.x) / (70 * S.k * 1.12);
+    const dy = (y - b.y) / (84 * S.k * 1.12);
+    const d = dx * dx + dy * dy;
+    if (d <= 1 && d < bd){ bd = d; best = b; }
+  }
+  return best;
+}
+
+function burst(x, y, pal, n = 34){
+  for (let i = 0; i < n; i++){
+    const a = Math.random() * Math.PI * 2;
+    const sp = (120 + Math.random() * 320) * S.k;
+    S.parts.push({
+      x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 120 * S.k,
+      life: 0, max: 0.8 + Math.random() * 0.7,
+      c: pal[i % pal.length], sz: (4 + Math.random() * 6) * S.k, r: Math.random() < 0.5
+    });
+  }
+}
+
+/* ==================== SOUND ==================== */
+let AC = null;
+function ac(){
+  if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+  if (AC.state === 'suspended') AC.resume();
+  return AC;
+}
+function tone(f, d, type, vol, at = 0, slide = 0){
+  if (S.muted) return;
+  const c = ac(), o = c.createOscillator(), g = c.createGain();
+  const t = c.currentTime + at;
+  o.type = type;
+  o.frequency.setValueAtTime(f, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, f + slide), t + d);
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(g).connect(c.destination);
+  o.start(t); o.stop(t + d + 0.03);
+}
+function noise(d, vol){
+  if (S.muted) return;
+  const c = ac(), len = Math.floor(c.sampleRate * d);
+  const buf = c.createBuffer(1, len, c.sampleRate);
+  const dat = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) dat[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const src = c.createBufferSource(), g = c.createGain();
+  src.buffer = buf; g.gain.value = vol;
+  src.connect(g).connect(c.destination); src.start();
+}
+function sfx(n){
+  if (n === 'pop'){ noise(0.12, 0.5); tone(700, 0.15, 'sine', 0.25, 0, 500); }
+  else if (n === 'good'){ tone(523, 0.12, 'triangle', 0.25); tone(659, 0.12, 'triangle', 0.25, 0.12); tone(784, 0.25, 'triangle', 0.25, 0.24); }
+  else if (n === 'wrong'){ tone(220, 0.35, 'sawtooth', 0.15, 0, -120); }
+  else if (n === 'level'){ [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.2, 'triangle', 0.25, i * 0.13)); }
+  else if (n === 'win'){ [523, 659, 784, 659, 784, 1046].forEach((f, i) => tone(f, 0.22, 'square', 0.12, i * 0.14)); }
+}
+
+/* ==================== DRAW ==================== */
+function wrapLines(text, maxW){
+  const words = text.split(' ');
+  const lines = [];
+  let cur = '';
+  for (const w of words){
+    const test = cur ? cur + ' ' + w : w;
+    if (ctx.measureText(test).width > maxW && cur){ lines.push(cur); cur = w; }
+    else cur = test;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+function drawBalloon(b){
+  const k = S.k, rx = 70 * k, ry = 84 * k;
+  let x = b.x, y = b.y, sc = 1 + 0.08 * b.hv, al = 1;
+  if (b.state === 'pop'){
+    if (b.st > 0.35) return;
+    sc = 1 + b.st * 3; al = 1 - b.st * 3;
+  } else if (b.state === 'fizz'){
+    x += Math.sin(b.st * 40) * 6 * k;
+    sc = Math.max(0.15, 1 - b.st * 0.6) * sc;
+    al = Math.max(0, 1 - b.st * 0.8);
+    y += b.st * 70 * k;
+  } else if (b.state === 'fade'){
+    al = Math.max(0, 1 - b.st * 2.2);
+  }
+  if (al <= 0) return;
+
+  const pal = b.state === 'fizz' ? ['#e6e6ee', '#9b9bb0', '#4d4d66'] : b.col;
+  const [lt, bs, dk] = pal;
+  const sw = Math.sin(S.t * 2 + b.phase) * 5 * k;
+
+  ctx.save();
+  ctx.globalAlpha = al;
+  ctx.translate(x, y);
+  ctx.scale(sc, sc);
+
+  // tali
+  ctx.beginPath();
+  ctx.moveTo(0, ry + 7 * k);
+  ctx.bezierCurveTo(-12 * k + sw, ry + 30 * k, 12 * k - sw, ry + 50 * k, 0, ry + 76 * k);
+  ctx.strokeStyle = 'rgba(60,45,80,.65)';
+  ctx.lineWidth = Math.max(1.2, 1.6 * k);
+  ctx.stroke();
+
+  // simpul
+  ctx.beginPath();
+  ctx.moveTo(-7 * k, ry - 3 * k); ctx.lineTo(7 * k, ry - 3 * k); ctx.lineTo(0, ry + 8 * k);
+  ctx.closePath();
+  ctx.fillStyle = dk; ctx.fill();
+
+  // cincin glow untuk jawaban benar
+  if (b.glow){
+    ctx.save();
+    ctx.shadowColor = '#ffe600'; ctx.shadowBlur = 24;
+    ctx.lineWidth = 6; ctx.strokeStyle = '#ffe600';
+    ctx.beginPath(); ctx.ellipse(0, 0, rx + 8, ry + 8, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+
+  // badan balon 3D
+  ctx.beginPath();
+  ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+  const g = ctx.createRadialGradient(-rx * 0.35, -ry * 0.45, rx * 0.05, 0, 0, ry * 1.15);
+  g.addColorStop(0, lt); g.addColorStop(0.45, bs); g.addColorStop(1, dk);
+  ctx.fillStyle = g; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(0,0,0,.15)'; ctx.stroke();
+
+  // kilau 3D
+  ctx.save();
+  ctx.translate(-rx * 0.38, -ry * 0.42); ctx.rotate(-0.5);
+  ctx.beginPath(); ctx.ellipse(0, 0, rx * 0.2, ry * 0.11, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fill();
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(-rx * 0.1, -ry * 0.72, rx * 0.06, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.fill();
+
+  // teks jawaban
+  const fs = Math.max(11, Math.round(16 * k));
+  ctx.font = `800 ${fs}px 'Baloo 2', 'Comic Sans MS', sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const lines = wrapLines(b.text, rx * 1.5);
+  const lh = fs * 1.2;
+  ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 3; ctx.shadowOffsetY = 1;
+  ctx.fillStyle = '#fff';
+  lines.forEach((ln, i) => ctx.fillText(ln, 0, (i - (lines.length - 1) / 2) * lh));
+
+  ctx.restore();
+}
+
+function drawCloud(x, y, s){
+  ctx.fillStyle = 'rgba(255,255,255,.93)';
+  const parts = [[0,0,30],[28,-12,38],[60,0,28],[-26,6,24],[30,8,30]];
+  for (const [dx, dy, r] of parts){
+    ctx.beginPath(); ctx.arc(x + dx * s, y + dy * s, r * s, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+function draw(){
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+
+  // langit
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#3ab8ff'); sky.addColorStop(0.6, '#9ee3ff'); sky.addColorStop(1, '#e9fbff');
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+  // matahari
+  const sx = W * 0.86, sy = H * 0.14, sr = Math.max(28, 46 * S.k);
+  const sg = ctx.createRadialGradient(sx, sy, sr * 0.2, sx, sy, sr * 3);
+  sg.addColorStop(0, 'rgba(255,240,150,.9)'); sg.addColorStop(1, 'rgba(255,240,150,0)');
+  ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(sx, sy, sr * 3, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#ffe066'; ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill();
+
+  // awan
+  for (const c of S.clouds) drawCloud(c.x, c.y, c.s);
+
+  // gelembung ambient
+  for (const b of S.bubbles){
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 1.2; ctx.stroke();
+  }
+
+  // bukit
+  ctx.fillStyle = '#8be39a';
+  ctx.beginPath(); ctx.moveTo(0, H); ctx.quadraticCurveTo(W * 0.25, H * 0.82, W * 0.5, H * 0.9);
+  ctx.quadraticCurveTo(W * 0.8, H * 0.98, W, H * 0.85); ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#5fcf7b';
+  ctx.beginPath(); ctx.moveTo(0, H); ctx.quadraticCurveTo(W * 0.5, H * 0.95, W, H * 0.92);
+  ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+
+  // balon
+  for (const b of S.balloons) drawBalloon(b);
+
+  // partikel
+  for (const p of S.parts){
+    ctx.globalAlpha = Math.max(0, 1 - p.life / p.max);
+    ctx.fillStyle = p.c;
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.life * 8);
+    ctx.fillRect(-p.sz / 2, -p.sz / 2, p.sz, p.sz * (p.r ? 1 : 0.5));
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+
+  // kursor (tangan / mouse / sentuh)
+  if (S.cur){
+    const { x, y } = S.cur;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, S.pinch ? 10 : 20, 0, Math.PI * 2);
+    if (S.pinch){
+      ctx.fillStyle = 'rgba(255,77,109,.9)'; ctx.fill();
+    } else {
+      ctx.lineWidth = 4; ctx.strokeStyle = '#fff';
+      ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 8;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+/* ==================== UPDATE ==================== */
+function update(dt, now){
+  // awan & gelembung
+  for (const c of S.clouds){ c.x += c.sp * dt; if (c.x > W + 160) c.x = -160; }
+  for (const b of S.bubbles){
+    b.y -= b.sp * dt; b.x += Math.sin(S.t * 1.3 + b.ph) * 10 * dt;
+    if (b.y < -20){ b.y = H + 20; b.x = Math.random() * W; }
+  }
+
+  // partikel
+  S.parts = S.parts.filter(p => p.life < p.max);
+  for (const p of S.parts){
+    p.life += dt; p.vy += 520 * S.k * dt;
+    p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.99;
+  }
+
+  // balon bergerak naik-turun
+  for (const b of S.balloons){
+    b.st += dt;
+    b.x = b.bx + Math.sin(S.t * 0.7 + b.phase) * 18 * S.k;
+    b.y = b.by + Math.sin(S.t * 1.1 + b.phase * 1.3) * 34 * S.k;
+    const want = (S.hoverB === b) ? 1 : 0;
+    b.hv += (want - b.hv) * Math.min(1, dt * 12);
+  }
+
+  // deteksi tangan segar
+  if (now - S.lastHand > 400){ S.handOn = false; S.pinch = false; }
+
+  // sumber kursor: tangan (jika segar) atau mouse/sentuh
+  let target = null;
+  if (S.handOn && S.hand) target = S.hand;
+  else if (S.ptrIn && S.ptr) target = S.ptr;
+  if (target){
+    if (!S.cur) S.cur = { x: target.x, y: target.y };
+    const f = Math.min(1, dt * 20);
+    S.cur.x += (target.x - S.cur.x) * f;
+    S.cur.y += (target.y - S.cur.y) * f;
+  } else S.cur = null;
+
+  // hover & pinch
+  const rise = S.pinch && !S.pinchPrev;
+  S.pinchPrev = S.pinch;
+  S.hoverB = (S.mode === 'play' && S.cur) ? hitBalloon(S.cur.x, S.cur.y) : null;
+  if (rise && S.mode === 'play' && S.cur && S.handOn){
+    const b = hitBalloon(S.cur.x, S.cur.y);
+    if (b) answer(b);
+  }
+
+  // waktu habis
+  if (S.mode === 'play' && now >= S.deadline) timeout();
+
+  // HUD waktu
+  const sec = S.mode === 'play' ? Math.max(0, Math.ceil((S.deadline - now) / 1000)) : -1;
+  if (sec !== S.lastSec){
+    S.lastSec = sec;
+    $('navTimer').textContent = sec >= 0 ? sec + ' dtk' : '--';
+  }
+  if (S.mode === 'play' || S.mode === 'resolve'){
+    const tot = fmt(now - S.startT);
+    if (tot !== S.lastTotal){ S.lastTotal = tot; $('navTotal').textContent = tot; }
+  }
+}
+
+function loop(now){
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  S.t += dt;
+  update(dt, now);
+  draw();
+  requestAnimationFrame(loop);
+}
+let last = performance.now();
+
+/* ==================== PERMAINAN ==================== */
+function updateHUD(){
+  $('navName').textContent = S.name || '-';
+  $('navScore').textContent = S.score;
+  const lv = Math.min(5, S.lvl + 1);
+  $('navLevel').textContent = lv;
+  $('progressFill').style.width = (S.gi / 15 * 100) + '%';
+  $('progressText').textContent = `${S.gi} / 15 soal · Level ${lv}/5`;
+}
+
+function setHint(t){ $('hint').textContent = t; }
+
+function showBanner(kind, title, sub){
+  const b = $('banner');
+  b.className = kind;
+  b.innerHTML = `<div>${title}</div>` + (sub ? `<small>${sub}</small>` : '');
+  b.style.display = 'block';
+}
+function hideBanner(){ $('banner').style.display = 'none'; }
+
+function showLevel(title, desc, ms, cb){
+  S.mode = 'resolve';
+  $('lvlTitle').textContent = title;
+  $('lvlDesc').textContent = desc;
+  $('lvlOv').classList.add('show');
+  setTimeout(() => {
+    $('lvlOv').classList.remove('show');
+    if (cb) cb();
+  }, ms);
+}
+
+function startQuestion(){
+  S.token++;
+  S.mode = 'play';
+  hideBanner();
+  const L = LEVELS[S.lvl], q = curQ();
+  const badge = $('catBadge');
+  badge.textContent = q.cat;
+  badge.className = 'badge ' + q.cat;
+  $('levelName').textContent = `${L.name} · Soal ${S.qi + 1} dari 3`;
+  $('questionText').textContent = q.q;
+  spawnBalloons(q);
+  S.deadline = performance.now() + QTIME * 1000;
+  S.lastSec = -2;
+  updateHUD();
+}
+
+function beginGame(){
+  S.score = 0; S.correct = 0; S.gi = 0; S.lvl = 0; S.qi = 0;
+  S.parts = []; S.balloons = []; S.lastTotal = '';
+  S.startT = performance.now();
+  $('navName').textContent = S.name;
+  setHint(S.useCam
+    ? 'Gerakkan telunjuk ke balon, lalu cubit (rapatkan ibu jari & telunjuk) untuk memecahkan!'
+    : 'Klik atau ketuk balon jawaban yang benar untuk memecahkannya!');
+  updateHUD();
+  showLevel(`Level 1 · ${LEVELS[0].name}`, LEVELS[0].desc + ' Siap? Ayo!', 2200, startQuestion);
+}
+
+function answer(b){
+  if (S.mode !== 'play') return;
+  S.mode = 'resolve';
+  const q = curQ();
+  const rem = Math.max(0, (S.deadline - performance.now()) / 1000);
+  if (b.correct){
+    const gain = CAT[q.cat].pts + Math.round(rem);
+    S.score += gain; S.correct++;
+    b.state = 'pop'; b.st = 0;
+    burst(b.x, b.y, b.col);
+    S.balloons.forEach(o => { if (o !== b && o.state === 'idle'){ o.state = 'fade'; o.st = 0; } });
+    sfx('pop');
+    setTimeout(() => sfx('good'), 160);
+    showBanner('good', `🎉 Hebat! +${gain} poin`, q.ex);
+    finishQ(1900);
+  } else {
+    b.state = 'fizz'; b.st = 0;
+    S.balloons.forEach(o => {
+      if (o.correct) o.glow = true;
+      else if (o.state === 'idle'){ o.state = 'fade'; o.st = 0; }
+    });
+    const c = S.balloons.find(o => o.correct);
+    sfx('wrong');
+    showBanner('bad', `🤔 Belum tepat. Jawaban benar: "${c.text}"`, q.ex);
+    finishQ(2800);
+  }
+  updateHUD();
+}
+
+function timeout(){
+  S.mode = 'resolve';
+  const q = curQ();
+  S.balloons.forEach(o => {
+    if (o.correct) o.glow = true;
+    else if (o.state === 'idle'){ o.state = 'fade'; o.st = 0; }
+  });
+  const c = S.balloons.find(o => o.correct);
+  sfx('wrong');
+  showBanner('info', `⏰ Waktu habis! Jawaban benar: "${c.text}"`, q.ex);
+  finishQ(2800);
+}
+
+function finishQ(delay){
+  const tok = S.token;
+  setTimeout(() => {
+    if (tok !== S.token) return;
+    const levelDone = S.qi === 2;
+    S.gi++; S.qi++;
+    if (levelDone){ S.score += 50; S.lvl++; S.qi = 0; }
+    updateHUD();
+    if (S.gi >= 15){ endGame(); return; }
+    if (levelDone){
+      sfx('level');
+      showLevel(`🏆 Level ${S.lvl} selesai! Bonus +50`, `Sekarang: ${LEVELS[S.lvl].name}`, 2400, startQuestion);
+    } else {
+      startQuestion();
+    }
+  }, delay);
+}
+
+function endGame(){
+  S.mode = 'end';
+  S.balloons = [];
+  const pct = Math.round(S.correct / 15 * 100);
+  const stars = pct >= 80 ? 3 : pct >= 50 ? 2 : pct >= 25 ? 1 : 0;
+  $('endStars').textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
+  $('endTitle').textContent = `Selamat, ${S.name}!`;
+  $('endMsg').textContent =
+    pct >= 90 ? 'Luar biasa! Kamu Pahlawan Kalimat Aktif dan Pasif!' :
+    pct >= 70 ? 'Keren! Kamu makin pintar membedakan kalimat aktif dan pasif.' :
+    pct >= 40 ? 'Bagus sekali! Terus berlatih ya, kamu pasti makin hebat.' :
+                'Semangat! Ayo coba lagi, kamu pasti bisa!';
+  $('endStats').innerHTML =
+    `Skor akhir: <b>${S.score}</b><br>` +
+    `Jawaban benar: <b>${S.correct} / 15</b><br>` +
+    `Total waktu: <b>${fmt(performance.now() - S.startT)}</b>`;
+  $('endOv').classList.add('show');
+  sfx('win');
+  const pal = COLORS.map(c => c[1]);
+  for (let i = 0; i < 6; i++){
+    setTimeout(() => burst(Math.random() * W, Math.random() * H * 0.5, pal, 40), i * 320);
+  }
+}
+
+/* ==================== INPUT MOUSE / SENTUH ==================== */
+function canvasPos(e){
+  const r = cv.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+cv.addEventListener('pointermove', e => { S.ptr = canvasPos(e); S.ptrIn = true; });
+cv.addEventListener('pointerleave', () => { S.ptrIn = false; });
+cv.addEventListener('pointerdown', e => {
+  S.ptr = canvasPos(e); S.ptrIn = true;
+  if (S.mode === 'play'){
+    const b = hitBalloon(S.ptr.x, S.ptr.y);
+    if (b) answer(b);
+  }
+});
+
+/* ==================== KAMERA & MEDIAPIPE HANDS ==================== */
+const camEl = $('cam');
+const camSupported = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) && typeof Hands !== 'undefined';
+
+function setCamStatus(t){
+  if (t === S.camStat) return;
+  S.camStat = t;
+  $('camStatus').textContent = t;
+}
+
+function onHands(res){
+  const lm = res.multiHandLandmarks && res.multiHandLandmarks[0];
+  if (!lm){
+    S.handOn = false; S.pinch = false;
+    setCamStatus('Arahkan tangan ke kamera 🖐️');
+    return;
+  }
+  const idx = lm[8], th = lm[4], wr = lm[0], md = lm[9];
+  const palm = Math.hypot(wr.x - md.x, wr.y - md.y) || 0.001;
+  const ratio = Math.hypot(th.x - idx.x, th.y - idx.y) / palm;
+  // histeresis: cubit < 0.32 = pinch aktif, lepas > 0.55
+  if (S.pinch){ if (ratio > 0.55) S.pinch = false; }
+  else if (ratio < 0.32) S.pinch = true;
+
+  const nx = clamp((idx.x - 0.12) / 0.76, 0, 1);
+  const ny = clamp((idx.y - 0.10) / 0.80, 0, 1);
+  S.hand = { x: (1 - nx) * W, y: ny * H };  // dicerminkan agar intuitif
+  S.handOn = true;
+  S.lastHand = performance.now();
+  setCamStatus(S.pinch ? 'Cubit terdeteksi ✊' : 'Tangan terdeteksi ✋');
+}
+
+async function camLoop(){
+  if (!camStream || camFailed) return;
+  if (!sending && camEl.readyState >= 2){
+    sending = true;
+    try {
+      await hands.send({ image: camEl });
+    } catch (e){
+      camFailed = true; S.handOn = false; S.pinch = false;
+      setCamStatus('Gagal memuat model tangan');
+      setHint('Gesture tidak tersedia. Pakai mouse atau sentuh ya!');
+    }
+    sending = false;
+  }
+  requestAnimationFrame(camLoop);
+}
+
+async function enableCamera(){
+  if (typeof Hands === 'undefined') throw new Error('mediapipe-unavailable');
+  setCamStatus('Menyiapkan kamera…');
+  $('camBox').style.display = 'block';
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+    audio: false
+  });
+  camStream = stream;
+  camEl.srcObject = stream;
+  await camEl.play();
+  hands = new Hands({ locateFile: f => 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/' + f });
+  hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.6, minTrackingConfidence: 0.5 });
+  hands.onResults(onHands);
+  setCamStatus('Memuat model tangan…');
+  camLoop();
+}
+
+/* ==================== TOMBOL & ALUR ==================== */
+$('soundBtn').addEventListener('click', () => {
+  S.muted = !S.muted;
+  $('soundBtn').textContent = S.muted ? '🔇 Suara: Off' : '🔊 Suara: On';
+});
+
+$('nameIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('startBtn').click(); });
+
+$('startBtn').addEventListener('click', () => {
+  const n = $('nameIn').value.trim();
+  if (!n){
+    $('startErr').textContent = 'Yuk tulis namamu dulu ya 😊';
+    $('nameIn').focus();
+    return;
+  }
+  S.name = n.slice(0, 20);
+  $('startErr').textContent = '';
+  $('startOv').classList.remove('show');
+  if (camSupported()){
+    $('consentOv').classList.add('show');
+  } else {
+    S.useCam = false;
+    setCamStatus('Kamera tidak tersedia');
+    beginGame();
+  }
+});
+
+$('allowCam').addEventListener('click', async () => {
+  $('consentOv').classList.remove('show');
+  try {
+    await enableCamera();
+    S.useCam = true;
+  } catch (e){
+    S.useCam = false;
+    $('camBox').style.display = 'none';
+    setCamStatus('Kamera tidak diizinkan');
+  }
+  beginGame();
+  if (!S.useCam) setHint('Kamera tidak aktif. Klik atau ketuk balon yang benar!');
+});
+
+$('noCam').addEventListener('click', () => {
+  $('consentOv').classList.remove('show');
+  S.useCam = false;
+  $('camBox').style.display = 'none';
+  beginGame();
+});
+
+$('againBtn').addEventListener('click', () => {
+  $('endOv').classList.remove('show');
+  beginGame();
+});
+
+/* ==================== START ==================== */
+resize();
+updateHUD();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
